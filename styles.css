@@ -1,6 +1,7 @@
 /* UI Polish: match mobile screenshots
    - Dark theme tweaks, gold primary button, green selected difficulty
    - Larger reading typography, pill chips, sticky hint, responsive two-column layout
+   - Additional mobile fixes: fixed sticky hint, extra bottom padding for content, centered container
 */
 
 :root{
@@ -25,7 +26,7 @@
 *{box-sizing:border-box}
 html,body{height:100%;}
 body{margin:0;font-family:Inter, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;background:linear-gradient(180deg,var(--bg-0),var(--bg-1));color:var(--text);-webkit-font-smoothing:antialiased}
-.container{max-width:1100px;margin:0 auto;padding:22px}
+.container{max-width:920px;margin:0 auto;padding:22px}
 .page-shell{min-height:100vh}
 
 /* topbar */
@@ -127,8 +128,14 @@ body{margin:0;font-family:Inter, -apple-system, 'Segoe UI', Roboto, 'Helvetica N
 /* small screens adjustments */
 @media(max-width:520px){
   .app-title{font-size:28px}
-  .reading-box{font-size:15px;padding:18px}
+  .reading-box{font-size:16px;padding:18px}
   .logo-crest{width:60px;height:60px}
+  /* fix sticky hint to be fixed on small screens so it doesn't push content oddly */
+  .sticky-hint{position:fixed;bottom:12px;left:12px;right:12px;z-index:90;border-radius:12px}
+  /* ensure content before sticky hint has room */
+  .questions-container{padding-bottom:160px}
+  .start-recall-row{padding-bottom:120px}
+  .sources-list .source-chip{padding:8px 10px;font-size:13px}
 }
 
 /* Force hide inactive screens and ensure active screen spans both grid columns (higher specificity) */
