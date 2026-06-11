@@ -130,3 +130,7 @@ body{margin:0;font-family:Inter, -apple-system, 'Segoe UI', Roboto, 'Helvetica N
   .reading-box{font-size:15px;padding:18px}
   .logo-crest{width:60px;height:60px}
 }
+
+/* Force hide inactive screens and ensure active screen spans both grid columns (higher specificity) */
+.screen{display:none !important;}
+.screen.active{display:block !important;grid-column:1 / -1 !important;}
