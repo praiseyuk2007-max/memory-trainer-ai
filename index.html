@@ -1,159 +1,286 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Memory Trainer AI</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <div class="container">
-        <!-- HOME SCREEN -->
-        <div id="homeScreen" class="screen active">
-            <div class="screen-content">
-                <div class="logo">🧠</div>
-                <h1>Memory Trainer AI</h1>
-                <p class="subtitle">Master any academic topic through active recall and spaced repetition</p>
-                
-                <div class="input-group">
-                    <input 
-                        type="text" 
-                        id="topicInput" 
-                        placeholder="Enter topic (e.g., 'Photosynthesis', 'Neural Networks')"
-                        class="topic-input"
-                    >
+    <div class="page-shell">
+        <div class="topbar">
+            <div class="progress-dots" aria-hidden="true">
+                <span class="dot active"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+            </div>
+            <div class="top-actions">
+                <div id="keysSummary" class="keys-summary" title="API keys">
+                    <!-- mini key badges injected here -->
                 </div>
-                
-                <button id="startBtn" class="btn btn-primary btn-large">Start Session</button>
-                
-                <div class="quick-topics">
-                    <p class="quick-label">Quick start:</p>
-                    <div class="quick-btn-group">
-                        <button class="quick-btn" data-topic="Photosynthesis">Photosynthesis</button>
-                        <button class="quick-btn" data-topic="DNA Structure">DNA Structure</button>
-                        <button class="quick-btn" data-topic="Neural Networks">Neural Networks</button>
+                <button id="openSettings" class="settings-btn" aria-label="Open settings">⚙️</button>
+            </div>
+        </div>
+
+        <main class="container">
+            <!-- HOME SCREEN -->
+            <div id="homeScreen" class="screen active">
+                <div class="screen-content">
+                    <div class="logo-wrap">
+                        <div class="logo-crest">🧠</div>
+                        <h1 class="app-title">Memory Trainer</h1>
+                        <div class="ai-badge">⚡ AI Mode — <strong>Gemini</strong></div>
+                    </div>
+
+                    <div class="section">
+                        <div class="home-row">
+                            <div>
+                                <h3 class="section-title">Difficulty</h3>
+                                <div class="difficulty-cards">
+                                    <button class="difficulty-card selected" data-difficulty="Easy">
+                                        <div class="card-title">Easy</div>
+                                        <div class="card-desc">Simplified explanations, hints shown</div>
+                                    </button>
+
+                                    <button class="difficulty-card" data-difficulty="Normal">
+                                        <div class="card-title">Normal</div>
+                                        <div class="card-desc">Standard questions and hints</div>
+                                    </button>
+
+                                    <button class="difficulty-card" data-difficulty="Hard">
+                                        <div class="card-title">Hard</div>
+                                        <div class="card-desc">Harder questions, no hints by default</div>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="mode-wrap">
+                                <label class="section-title">Mode</label>
+                                <div class="mode-toggle">
+                                    <button id="toggleMode" class="btn btn-outline">Offline</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="section api-section">
+                        <h3 class="section-title">Gemini API Key</h3>
+                        <div class="api-box">
+                            <div class="key-row">
+                                <div class="key-lock">🔒</div>
+                                <div class="key-dots">
+                                    <!-- visual dots for locked key (placeholder) -->
+                                    <span class="key-dot"></span><span class="key-dot"></span><span class="key-dot"></span><span class="key-dot"></span>
+                                    <span class="key-dot"></span><span class="key-dot"></span><span class="key-dot"></span><span class="key-dot"></span>
+                                </div>
+                            </div>
+                            <div class="api-help">Open Settings to add/edit API keys and model preferences. Keys are stored locally in your browser.</div>
+                        </div>
+                    </div>
+
+                    <div class="section">
+                        <label class="label">What do you want to learn?</label>
+                        <input id="topicInput" class="topic-input" type="text" placeholder="e.g., Photosynthesis, Gravity...">
+
+                        <div class="topic-picker" id="topicPicker">
+                            <!-- preloaded topics injected here -->
+                        </div>
+
+                        <div class="action-row">
+                            <button id="randomBtn" class="btn btn-outline">Random Topic</button>
+                            <button id="startBtn" class="btn btn-primary btn-large">Start Session</button>
+                        </div>
+                    </div>
+
+                    <div id="reviewBanner" class="review-banner hidden">
+                        <p>📋 You have topics to review</p>
+                        <button id="reviewBtn" class="btn btn-secondary">Review Weak Topics</button>
                     </div>
                 </div>
+            </div>
 
-                <div id="reviewBanner" class="review-banner hidden">
-                    <p>📋 You have topics to review</p>
-                    <button id="reviewBtn" class="btn btn-secondary">Review Weak Topics</button>
+            <!-- READING MODE SCREEN -->
+            <div id="readingScreen" class="screen">
+                <div class="screen-header">
+                    <button id="backFromReading" class="btn-back">←</button>
+                    <div class="progress">1 / 4</div>
                 </div>
-            </div>
-        </div>
 
-        <!-- READING MODE SCREEN -->
-        <div id="readingScreen" class="screen">
-            <div class="screen-header">
-                <button id="backFromReading" class="btn-back">← Back</button>
-                <div class="progress">1 / 4</div>
-            </div>
-            
-            <div class="screen-content">
-                <h2>📖 Learning</h2>
-                <div id="readingContent" class="reading-box">
-                    <!-- Content generated by AI -->
-                </div>
-                
-                <div class="difficulty-indicator">
-                    <span id="difficultyBadge" class="badge badge-normal">NORMAL</span>
-                </div>
-                
-                <button id="continueFromReading" class="btn btn-primary btn-large">Ready? → Continue</button>
-            </div>
-        </div>
+                <div class="screen-content">
+                    <h2 class="reading-title" id="readingTitle">📖 Working Memory</h2>
+                    <div id="readingContent" class="reading-box">
+                        <!-- Content generated by AI or offline synthesizer -->
+                    </div>
 
-        <!-- ACTIVE RECALL SCREEN -->
-        <div id="recallScreen" class="screen">
-            <div class="screen-header">
-                <button id="backFromRecall" class="btn-back">← Back</button>
-                <div class="progress">2 / 4</div>
-            </div>
-            
-            <div class="screen-content">
-                <h2>🧠 Active Recall</h2>
-                <p class="instruction">Answer these questions from memory (don't look back):</p>
-                
-                <div id="questionsContainer" class="questions-container">
-                    <!-- Questions generated -->
-                </div>
-                
-                <button id="submitRecall" class="btn btn-primary btn-large" disabled>Submit Answers</button>
-            </div>
-        </div>
+                    <div class="sources">
+                        <div class="sources-label">Sources & further reading</div>
+                        <div class="sources-list" id="sourcesList">
+                            <!-- chips generated here -->
+                        </div>
+                    </div>
 
-        <!-- WRITING MODE SCREEN -->
-        <div id="writingScreen" class="screen">
-            <div class="screen-header">
-                <button id="backFromWriting" class="btn-back">← Back</button>
-                <div class="progress">3 / 4</div>
-            </div>
-            
-            <div class="screen-content">
-                <h2>✍️ Explain in Your Words</h2>
-                <p class="instruction">Explain the concept in 1-3 sentences as if teaching a friend:</p>
-                
-                <textarea 
-                    id="writingInput" 
-                    class="writing-textarea" 
-                    placeholder="Type your explanation here..."
-                    rows="6"
-                ></textarea>
-                
-                <div class="char-count">
-                    <span id="charCount">0</span> / 150 characters (minimum: 50)
-                </div>
-                
-                <button id="submitWriting" class="btn btn-primary btn-large" disabled>Submit & Get Feedback</button>
-            </div>
-        </div>
-
-        <!-- FEEDBACK SCREEN -->
-        <div id="feedbackScreen" class="screen">
-            <div class="screen-header">
-                <div class="progress">4 / 4</div>
-            </div>
-            
-            <div class="screen-content">
-                <h2>📊 Feedback & Score</h2>
-                
-                <div class="score-display">
-                    <div class="score-circle">
-                        <span id="scoreValue">8</span>
-                        <span class="score-label">/10</span>
+                    <div class="start-recall-row">
+                        <button id="continueFromReading" class="btn btn-primary btn-large">Start Active Recall</button>
                     </div>
                 </div>
-                
-                <div id="feedbackContent" class="feedback-box">
-                    <!-- Feedback generated -->
-                </div>
-                
-                <div class="next-review">
-                    <p id="nextReviewText" class="next-review-text"></p>
-                </div>
-                
-                <div class="button-group">
-                    <button id="nextTopic" class="btn btn-primary btn-large">Next Topic</button>
-                    <button id="reviewAgain" class="btn btn-secondary">Review Again</button>
-                </div>
             </div>
-        </div>
 
-        <!-- REVIEW MODE SCREEN -->
-        <div id="reviewScreen" class="screen">
-            <div class="screen-header">
-                <button id="backFromReview" class="btn-back">← Back</button>
-                <div class="progress">Review Mode</div>
-            </div>
-            
-            <div class="screen-content">
-                <h2>📋 Review Weak Topics</h2>
-                
-                <div id="reviewList" class="review-list">
-                    <!-- Weak topics list -->
+            <!-- ACTIVE RECALL SCREEN -->
+            <div id="recallScreen" class="screen">
+                <div class="screen-header">
+                    <button id="backFromRecall" class="btn-back">←</button>
+                    <div class="progress">2 / 4</div>
                 </div>
-                
-                <p id="noReview" class="empty-state">No topics to review right now! 🎉</p>
+
+                <div class="screen-content">
+                    <h2>🧠 Active Recall</h2>
+                    <p class="instruction">Answer these questions from memory (don't look back):</p>
+
+                    <div id="questionsContainer" class="questions-container">
+                        <!-- Questions generated -->
+                    </div>
+
+                    <button id="submitRecall" class="btn btn-primary btn-large" disabled>Submit Answers</button>
+                </div>
+
+                <div class="sticky-hint" id="stickyHint">
+                    <div class="hint-label">Need a hint</div>
+                    <button id="hintBtn" class="btn btn-primary">Continue →</button>
+                </div>
+            </div>
+
+            <!-- WRITING MODE SCREEN -->
+            <div id="writingScreen" class="screen">
+                <div class="screen-header">
+                    <button id="backFromWriting" class="btn-back">←</button>
+                    <div class="progress">3 / 4</div>
+                </div>
+
+                <div class="screen-content">
+                    <h2>✍️ Explain in Your Words</h2>
+                    <p class="instruction">Explain the concept in 1-3 sentences as if teaching a friend:</p>
+
+                    <textarea id="writingInput" class="writing-textarea" placeholder="Type your explanation here..." rows="6"></textarea>
+
+                    <div class="char-count">
+                        <span class="min-req">Minimum 12 words</span>
+                        <span id="wordCount">0 words</span>
+                    </div>
+
+                    <button id="submitWriting" class="btn btn-primary btn-large" disabled>Submit & Get Feedback</button>
+                </div>
+            </div>
+
+            <!-- FEEDBACK SCREEN -->
+            <div id="feedbackScreen" class="screen">
+                <div class="screen-header">
+                    <div class="progress">4 / 4</div>
+                </div>
+
+                <div class="screen-content">
+                    <h2>📊 Feedback & Score</h2>
+
+                    <div class="score-display">
+                        <div class="score-circle">
+                            <span id="scoreValue">8</span>
+                            <span class="score-label">/10</span>
+                        </div>
+                    </div>
+
+                    <div id="feedbackContent" class="feedback-box">
+                        <!-- Feedback generated -->
+                    </div>
+
+                    <div class="next-review">
+                        <p id="nextReviewText" class="next-review-text"></p>
+                    </div>
+
+                    <div class="button-group">
+                        <button id="nextTopic" class="btn btn-primary btn-large">Next Topic</button>
+                        <button id="reviewAgain" class="btn btn-secondary">Review Again</button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- REVIEW MODE SCREEN -->
+            <div id="reviewScreen" class="screen">
+                <div class="screen-header">
+                    <button id="backFromReview" class="btn-back">←</button>
+                    <div class="progress">Review Mode</div>
+                </div>
+
+                <div class="screen-content">
+                    <h2>📋 Review Weak Topics</h2>
+
+                    <div id="reviewList" class="review-list">
+                        <!-- Weak topics list -->
+                    </div>
+
+                    <p id="noReview" class="empty-state">No topics to review right now! 🎉</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- SETTINGS PANEL -->
+    <div id="settingsPanel" class="settings-panel hidden">
+        <div class="settings-inner">
+            <div class="settings-header">
+                <h3>Settings & API Keys</h3>
+                <button id="closeSettings" class="btn btn-outline">Close</button>
+            </div>
+
+            <div class="settings-section">
+                <label class="section-title">Mode</label>
+                <div class="row-gap">
+                    <div>Online / Offline determines whether the app requests fresh model output or uses cached/local generators.</div>
+                    <div style="margin-top:8px;">
+                        <button id="modeBtn" class="btn btn-outline">Toggle Mode</button>
+                        <span id="modeLabel" style="margin-left:12px;font-weight:700">Offline</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <label class="section-title">API Keys</label>
+                <div id="keysList" class="keys-list">
+                    <!-- keys will be rendered here -->
+                </div>
+
+                <div class="add-key-row">
+                    <select id="newKeyType">
+                        <option value="gen">Gemini (Generative)</option>
+                        <option value="google">Google CSE</option>
+                    </select>
+                    <input id="newKeyLabel" placeholder="Label (e.g., Gemini main)" />
+                    <input id="newKeyValue" placeholder="Paste API key here" />
+                    <input id="newKeyExtra" placeholder="(Google CSE: CSE ID)" />
+                    <button id="addKeyBtn" class="btn btn-primary">Add Key</button>
+                </div>
+
+                <div class="master-lock">
+                    <button id="masterLockBtn" class="btn btn-outline">Lock Keys</button>
+                    <div class="warning">Keys are stored in this browser's localStorage only. Do not add secrets on shared/public devices.</div>
+                </div>
+            </div>
+
+            <div class="settings-section">
+                <label class="section-title">Model</label>
+                <div class="row-gap">
+                    <select id="modelPreset">
+                        <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite</option>
+                        <option value="gemini-3.1">gemini-3.1</option>
+                        <option value="gpt-4o">gpt-4o</option>
+                    </select>
+                    <input id="customModel" placeholder="Or type custom model string" />
+                    <button id="saveModelBtn" class="btn btn-primary">Save Model</button>
+                </div>
+            </div>
+
+            <div class="settings-footer">
+                <small>Unlocking keys requires confirmation. Keys and settings are saved automatically to localStorage.</small>
             </div>
         </div>
     </div>
