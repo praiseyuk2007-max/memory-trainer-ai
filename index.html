@@ -4,18 +4,152 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Memory Trainer AI</title>
-    <!-- Cache-busted stylesheet so browsers fetch the newest CSS after deploy -->
-    <link rel="stylesheet" href="styles.css?v=4">
-    <!-- Critical inline CSS guard to ensure inactive screens are hidden immediately (prevents flash-of-multiple-screens) -->
+    <!-- INLINE STYLES (inline-hotfix): styles.css content inlined to avoid caching issues -->
     <style>
-      /* Critical guard: hide all screens until JS runs and ensure active one spans grid */
-      .screen{display:none !important; pointer-events:none;}
-      .screen.active{display:block !important; pointer-events:auto !important; grid-column:1 / -1 !important;}
-      /* Ensure sticky hint is not covering inputs by default on small screens */
-      @media (max-width:520px){
-        .questions-container{padding-bottom:160px}
-      }
-    </style>
+/* UI Polish: match mobile screenshots
+   - Dark theme tweaks, gold primary button, green selected difficulty
+   - Larger reading typography, pill chips, sticky hint, responsive two-column layout
+   - Additional mobile fixes: fixed sticky hint, extra bottom padding for content, centered container
+*/
+
+:root{
+  --bg-0:#05060a;
+  --bg-1:#0b0f14;
+  --surface:#0f1418;
+  --card:#0e1416;
+  --text:#e6eef0;
+  --muted:#9aa6a3;
+  --accent-green:#21c994;
+  --gold-1:#ffd05a;
+  --gold-2:#f3b61a;
+  --border:rgba(255,255,255,0.04);
+  --radius:14px;
+}
+
+/* Ensure only the active screen is visible and that screens span both columns */
+.screen{display:none;grid-column:1/-1}
+.screen.active{display:block}
+
+/* base */
+*{box-sizing:border-box}
+html,body{height:100%;}
+body{margin:0;font-family:Inter, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;background:linear-gradient(180deg,var(--bg-0),var(--bg-1));color:var(--text);-webkit-font-smoothing:antialiased}
+.container{max-width:920px;margin:0 auto;padding:22px}
+.page-shell{min-height:100vh}
+
+/* topbar */
+.topbar{display:flex;justify-content:space-between;align-items:center;padding-bottom:12px}
+.progress-dots{display:flex;gap:8px;align-items:center}
+.progress-dots .dot{width:9px;height:9px;border-radius:999px;background:rgba(255,255,255,0.04);opacity:.4}
+.progress-dots .dot.active{background:var(--gold-2);box-shadow:0 6px 18px rgba(243,182,26,0.12);opacity:1}
+.top-actions{display:flex;align-items:center;gap:10px}
+
+/* header */
+.logo-wrap{text-align:center;margin:18px 0}
+.logo-crest{width:72px;height:72px;border-radius:999px;background:linear-gradient(180deg,rgba(243,182,26,0.12),rgba(243,182,26,0.04));display:inline-grid;place-items:center;font-size:30px}
+.app-title{font-size:34px;font-weight:800;margin-top:12px}
+.ai-badge{display:inline-block;margin-top:10px;background:rgba(33,201,148,0.06);color:var(--accent-green);padding:7px 14px;border-radius:999px;font-weight:700}
+
+/* sections and layout */
+.screen-content{display:flex;flex-direction:column;gap:18px}
+.section{padding:6px 0}
+.section-title{font-size:13px;color:var(--muted);margin-bottom:6px}
+
+/* two-column layout on desktop */
+@media(min-width:1100px){
+  .container{display:grid;grid-template-columns:1fr 360px;gap:28px;align-items:start}
+  .screen-content{max-width:740px}
+}
+
+/* difficulty cards */
+.difficulty-cards{display:flex;gap:12px}
+.difficulty-card{flex:1;background:linear-gradient(180deg,rgba(255,255,255,0.01),rgba(255,255,255,0.01));border:1px solid var(--border);padding:14px;border-radius:12px;cursor:pointer;transition:transform .14s ease, box-shadow .14s ease}
+.difficulty-card:hover{transform:translateY(-4px)}
+.card-title{font-weight:800;color:var(--text);font-size:15px}
+.card-desc{color:var(--muted);font-size:13px;margin-top:6px}
+.difficulty-card.selected{background:linear-gradient(180deg,rgba(33,201,148,0.06),rgba(33,201,148,0.02));border-color:rgba(33,201,148,0.18);box-shadow:0 12px 30px rgba(33,201,148,0.06)}
+
+/* api key box on home */
+.api-box{background:rgba(255,255,255,0.01);border:1px solid var(--border);padding:12px;border-radius:12px}
+.key-row{display:flex;align-items:center;gap:12px}
+.key-dots{display:flex;gap:6px}
+.key-dot{width:12px;height:12px;border-radius:999px;background:rgba(255,255,255,0.06)}
+.api-help{color:var(--accent-green);margin-top:8px}
+
+/* inputs and actions */
+.label{color:var(--muted);font-size:14px}
+.topic-input{width:100%;padding:14px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,0.01);color:var(--text);font-size:15px}
+.action-row{display:flex;gap:12px;margin-top:12px}
+.btn{padding:12px 16px;border-radius:12px;font-weight:700;border:1px solid var(--border);cursor:pointer}
+.btn-large{padding:14px 18px;font-size:16px}
+.btn-outline{background:transparent;color:var(--text);border:1px solid rgba(255,255,255,0.06)}
+.btn-secondary{background:rgba(255,255,255,0.02);color:var(--text)}
+
+/* gold primary button (full-width on mobile) */
+.btn-primary{background:linear-gradient(180deg,var(--gold-1),var(--gold-2));color:#081017;border:none;box-shadow:0 10px 30px rgba(212,155,19,0.12);border-radius:12px}
+.btn-primary:hover{transform:translateY(-2px)}
+@media(max-width:520px){.btn-large{width:100%}}
+
+/* topic picker */
+.topic-picker{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.topic-btn{padding:12px;border-radius:10px;border:1px solid var(--border);background:rgba(255,255,255,0.01);cursor:pointer;text-align:center}
+
+/* reading */
+.reading-title{font-size:22px;font-weight:800;margin-bottom:6px}
+.reading-box{background:rgba(255,255,255,0.01);padding:22px;border-radius:12px;border:1px solid var(--border);line-height:1.8;font-size:17px;color:var(--text)}
+.sources{margin-top:10px}
+.sources-label{color:var(--muted);margin-bottom:8px}
+.sources-list{display:flex;gap:10px;flex-wrap:wrap}
+.source-chip{display:inline-flex;align-items:center;gap:8px;padding:8px 12px;border-radius:999px;background:rgba(255,255,255,0.01);border:1px solid var(--border);color:var(--text);font-size:13px;text-decoration:none}
+.source-chip .icon{width:28px;height:28px;border-radius:999px;background:rgba(255,255,255,0.02);display:grid;place-items:center;font-weight:700}
+.source-chip:hover{box-shadow:0 8px 28px rgba(0,0,0,0.45)}
+
+/* recall */
+.questions-container{display:flex;flex-direction:column;gap:14px}
+.question-item{background:rgba(255,255,255,0.01);padding:14px;border-radius:12px;border:1px solid var(--border)}
+.question-text{font-weight:700;margin-bottom:8px}
+.question-input{width:100%;min-height:80px;padding:12px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--text)}
+
+/* sticky hint */
+.sticky-hint{position:sticky;bottom:12px;left:12px;right:12px;background:linear-gradient(180deg,rgba(11,15,20,0.6),rgba(11,15,20,0.95));padding:12px 16px;border-top:1px solid rgba(255,255,255,0.03);display:flex;justify-content:space-between;align-items:center;gap:12px;border-radius:12px}
+.hint-label{color:var(--muted)}
+
+/* writing */
+.writing-textarea{width:100%;min-height:140px;padding:16px;border-radius:12px;border:1px solid var(--border);background:rgba(255,255,255,0.01);color:var(--text);font-size:15px}
+.char-count{display:flex;justify-content:space-between;color:var(--muted);font-size:13px;margin-top:8px}
+
+/* feedback */
+.score-circle{width:140px;height:140px;border-radius:999px;background:linear-gradient(180deg,var(--gold-1),var(--gold-2));display:grid;place-items:center;font-weight:800;color:#081017;margin:14px auto}
+.feedback-box{background:rgba(255,255,255,0.01);padding:16px;border-radius:12px;border:1px solid var(--border)}
+.weak-point{background:rgba(255,0,0,0.04);padding:10px;border-radius:8px;color:#ffb3b3}
+
+/* settings panel polish */
+.settings-inner{padding:22px}
+.key-item{display:flex;align-items:center;gap:12px;padding:12px;border-radius:12px;background:linear-gradient(180deg,rgba(255,255,255,0.01),rgba(255,255,255,0.01));border:1px solid var(--border)}
+.key-actions .btn{padding:8px 10px}
+.keys-list{max-height:240px;overflow:auto;padding-right:6px}
+
+/* main page key summary */
+.key-mini{padding:8px 10px;border-radius:999px;background:rgba(255,255,255,0.01);border:1px solid var(--border);font-size:13px}
+.key-plus{width:38px;height:38px;border-radius:999px;background:linear-gradient(180deg,var(--gold-1),var(--gold-2));display:grid;place-items:center;cursor:pointer}
+
+/* small screens adjustments */
+@media(max-width:520px){
+  .app-title{font-size:28px}
+  .reading-box{font-size:16px;padding:18px}
+  .logo-crest{width:60px;height:60px}
+  /* fix sticky hint to be fixed on small screens so it doesn't push content oddly */
+  .sticky-hint{position:fixed;bottom:12px;left:12px;right:12px;z-index:90;border-radius:12px}
+  /* ensure content before sticky hint has room */
+  .questions-container{padding-bottom:160px}
+  .start-recall-row{padding-bottom:120px}
+  .sources-list .source-chip{padding:8px 10px;font-size:13px}
+}
+
+/* Force hide inactive screens and ensure active screen spans both grid columns (higher specificity) */
+.screen{display:none !important;}
+.screen.active{display:block !important;grid-column:1 / -1 !important;}
+</style>
 </head>
 <body>
     <div class="page-shell">
@@ -296,7 +430,199 @@
         </div>
     </div>
 
-    <script src="app.js"></script>
-    <script src="fixes.js"></script>
+    <!-- INLINE SCRIPTS (app.js + fixes.js combined) -->
+    <script>
+// ============================================
+// MEMORY TRAINER AI - Combined app.js + fixes.js (inlined hotfix build)
+// ============================================
+
+// --- app.js relevant pieces (renderKeysSummary module) ---
+
+function renderKeysSummary(){
+  const container = document.getElementById('keysSummary'); if(!container) return; container.innerHTML = '';
+  const keys = (window.loadKeys && typeof window.loadKeys === 'function') ? loadKeys() : [];
+  const locked = (window.isMasterLocked && typeof window.isMasterLocked === 'function') ? isMasterLocked() : false;
+  // plus button
+  const plus = document.createElement('div'); plus.className = 'key-plus'; plus.title = 'Add API key'; plus.textContent = '+';
+  plus.onclick = ()=>{ const os = document.getElementById('openSettings'); if(os) os.click(); const nk = document.getElementById('newKeyValue'); if(nk) nk.focus(); };
+  container.appendChild(plus);
+
+  // show up to 3 key-mini badges
+  keys.slice(0,3).forEach(k=>{
+    const badge = document.createElement('div'); badge.className='key-mini';
+    const labelSpan = document.createElement('span'); labelSpan.textContent = k.label || (k.type==='gen'?'Gemini':'Google');
+    badge.appendChild(labelSpan);
+    // lock icon on badge
+    const lock = document.createElement('span'); lock.className='lock'; lock.title = 'Master lock status'; lock.textContent = locked? '🔒':'🔓';
+    lock.onclick = (e)=>{ e.stopPropagation(); if(confirm((locked?'Unlock':'Lock') + ' keys?')){ if(window.setMasterLocked) window.setMasterLocked(!locked); renderKeysSummary(); if(window.renderKeysList) renderKeysList(); const mb=document.getElementById('masterLockBtn'); if(mb) mb.textContent = window.isMasterLocked && window.isMasterLocked() ? 'Unlock Keys' : 'Lock Keys'; }};
+    badge.appendChild(lock);
+    // remove button
+    const del = document.createElement('span'); del.className='remove'; del.title='Remove key'; del.textContent='✖'; del.onclick = (e)=>{ e.stopPropagation(); if(window.isMasterLocked && window.isMasterLocked()){ alert('Unlock keys first to remove.'); return; } if(confirm('Delete key "'+(k.label||'key')+'"?')){ if(window.removeKey) window.removeKey(k.id); renderKeysSummary(); } };
+    badge.appendChild(del);
+    // primary marker
+    if(k.primary){ const pmark = document.createElement('span'); pmark.style.marginLeft='8px'; pmark.style.fontWeight='700'; pmark.textContent='★'; badge.appendChild(pmark); }
+    container.appendChild(badge);
+  });
+
+  if(keys.length>3){ const more = document.createElement('div'); more.className='key-mini'; more.textContent = `+${keys.length-3} more`; more.onclick = ()=>{ const os = document.getElementById('openSettings'); if(os) os.click(); }; container.appendChild(more); }
+}
+
+// DOMContentLoaded hook for rendering keys summary if helpers present
+(function attachSummaryRenderer(){
+  document.addEventListener('DOMContentLoaded', ()=>{
+    try{ renderKeysSummary(); if(window.renderKeysList) renderKeysList(); }catch(e){ console.warn('render keys summary error', e); }
+    const mb = document.getElementById('masterLockBtn'); if(mb && window.isMasterLocked){ mb.textContent = window.isMasterLocked() ? 'Unlock Keys' : 'Lock Keys'; }
+  });
+})();
+
+console.log('Main-page key summary module (inlined) loaded.');
+
+// --- end app.js snippet ---
+
+
+// --- fixes.js combined improvements (idempotent init, dedupe, showScreen, safe bindings) ---
+(function(){
+  // Utility helpers
+  function onceBind(el, type, handler){
+    if(!el) return;
+    if(el.dataset && el.dataset.bound === 'true') return;
+    el.addEventListener(type, handler);
+    if(el.dataset) el.dataset.bound = 'true';
+  }
+
+  function dedupeStylesheets(){
+    try{
+      const links = Array.from(document.querySelectorAll('link[rel="stylesheet"]'));
+      const seen = new Map();
+      links.forEach(link =>{
+        const href = link.getAttribute('href') || '';
+        const key = href.split('?')[0];
+        if(seen.has(key)){
+          link.parentNode && link.parentNode.removeChild(link);
+        } else {
+          seen.set(key, link);
+        }
+      });
+    }catch(e){ console.warn('[init] dedupeStylesheets error', e); }
+  }
+
+  function ensureSingleActiveScreen(){
+    const screens = Array.from(document.querySelectorAll('.screen'));
+    const actives = screens.filter(s => s.classList.contains('active'));
+    if(actives.length !== 1){
+      screens.forEach(s => s.classList.remove('active'));
+      const home = document.getElementById('homeScreen') || screens[0];
+      if(home) home.classList.add('active');
+      console.info('[init] ensured single active screen');
+    }
+  }
+
+  function showScreen(id){
+    try{
+      const screens = Array.from(document.querySelectorAll('.screen'));
+      screens.forEach(s => {
+        if(s.id === id){
+          s.classList.add('active');
+          s.style.display = 'block';
+          s.style.pointerEvents = 'auto';
+        } else {
+          s.classList.remove('active');
+          s.style.display = 'none';
+          s.style.pointerEvents = 'none';
+        }
+      });
+      try{
+        const dots = Array.from(document.querySelectorAll('.progress-dots .dot'));
+        dots.forEach((d, i) => d.classList.toggle('active', false));
+        const screenOrder = ['homeScreen','readingScreen','recallScreen','writingScreen','feedbackScreen'];
+        const idx = screenOrder.indexOf(id);
+        if(idx >= 0 && dots[idx]) dots[idx].classList.add('active');
+      }catch(e){ }
+      const activeEl = document.getElementById(id);
+      if(activeEl) activeEl.scrollIntoView({behavior:'instant', block:'start'});
+    }catch(err){ console.error('[init] showScreen error', err); }
+  }
+
+  function safeBindUI(){
+    try{
+      const diffCards = Array.from(document.querySelectorAll('.difficulty-card'));
+      diffCards.forEach(card => {
+        onceBind(card, 'click', function(){
+          diffCards.forEach(c => c.classList.remove('selected'));
+          card.classList.add('selected');
+          try{ window.state = window.state || {}; window.state.difficulty = card.dataset.difficulty || 'Normal'; }catch(e){}
+        });
+      });
+
+      const map = [
+        {id:'openSettings', fn:()=> document.getElementById('settingsPanel') && document.getElementById('settingsPanel').classList.remove('hidden')},
+        {id:'closeSettings', fn:()=> document.getElementById('settingsPanel') && document.getElementById('settingsPanel').classList.add('hidden')},
+        {id:'randomBtn', fn:()=>{ const topics = Object.keys(window.knowledgeBase||{}); if(topics.length){ const pick = topics[Math.floor(Math.random()*topics.length)]; const ti=document.getElementById('topicInput'); if(ti) ti.value = pick;} }},
+        {id:'startBtn', fn:()=>{ const t = (document.getElementById('topicInput')||{}).value; if(!t){ alert('Please enter a topic'); return; } window.startSession ? window.startSession(t) : showScreen('readingScreen'); }},
+        {id:'backFromReading', fn:()=> showScreen('homeScreen') },
+        {id:'continueFromReading', fn:()=> showScreen('recallScreen') },
+        {id:'backFromRecall', fn:()=> showScreen('readingScreen') },
+        {id:'backFromWriting', fn:()=> showScreen('recallScreen') },
+        {id:'backFromReview', fn:()=> showScreen('homeScreen') },
+        {id:'hintBtn', fn:()=>{ alert('Hint: recall the main definition and one example.'); }},
+      ];
+
+      map.forEach(m => {
+        const el = document.getElementById(m.id);
+        if(el) onceBind(el, 'click', m.fn);
+      });
+
+      document.querySelectorAll('.topic-btn').forEach(b=>{
+        onceBind(b,'click',()=>{ const ti=document.getElementById('topicInput'); if(ti) ti.value = b.textContent.trim(); });
+      });
+
+      const questionsContainer = document.getElementById('questionsContainer');
+      const submitRecall = document.getElementById('submitRecall');
+      if(questionsContainer && submitRecall){
+        onceBind(questionsContainer,'input', ()=>{
+          const vals = Array.from(questionsContainer.querySelectorAll('textarea, input')).map(i=>i.value.trim()).filter(Boolean);
+          submitRecall.disabled = vals.length === 0;
+        });
+      }
+
+      ['openSettings','randomBtn','startBtn','continueFromReading','submitRecall','submitWriting','nextTopic','reviewAgain','hintBtn','modeBtn','modeLabel'].forEach(id=>{
+        const el = document.getElementById(id);
+        if(el) el.style.pointerEvents = 'auto';
+      });
+
+    }catch(e){ console.warn('[init] safeBindUI error', e); }
+  }
+
+  function dedupeFixScripts(){
+    try{
+      const scripts = Array.from(document.querySelectorAll('script[src]'));
+      const seen = new Set();
+      scripts.forEach(s =>{
+        const src = s.getAttribute('src')||'';
+        if(src.includes('fixes.js')){
+          if(seen.has(src)){
+            s.parentNode && s.parentNode.removeChild(s);
+          } else seen.add(src);
+        }
+      });
+    }catch(e){ }
+  }
+
+  function init(){
+    dedupeStylesheets();
+    dedupeFixScripts();
+    ensureSingleActiveScreen();
+    safeBindUI();
+    window.showScreen = window.showScreen || showScreen;
+    setTimeout(()=>{ ensureSingleActiveScreen(); safeBindUI(); }, 500);
+  }
+
+  if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+
+})();
+
+// End of inlined scripts
+</script>
 </body>
 </html>
