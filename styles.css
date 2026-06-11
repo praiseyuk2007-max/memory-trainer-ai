@@ -17,6 +17,10 @@
   --radius:14px;
 }
 
+/* Ensure only the active screen is visible and that screens span both columns */
+.screen{display:none;grid-column:1/-1}
+.screen.active{display:block}
+
 /* base */
 *{box-sizing:border-box}
 html,body{height:100%;}
