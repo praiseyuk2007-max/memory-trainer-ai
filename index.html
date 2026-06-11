@@ -5,7 +5,17 @@
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>Memory Trainer AI</title>
     <!-- Cache-busted stylesheet so browsers fetch the newest CSS after deploy -->
-    <link rel="stylesheet" href="styles.css?v=3">
+    <link rel="stylesheet" href="styles.css?v=4">
+    <!-- Critical inline CSS guard to ensure inactive screens are hidden immediately (prevents flash-of-multiple-screens) -->
+    <style>
+      /* Critical guard: hide all screens until JS runs and ensure active one spans grid */
+      .screen{display:none !important; pointer-events:none;}
+      .screen.active{display:block !important; pointer-events:auto !important; grid-column:1 / -1 !important;}
+      /* Ensure sticky hint is not covering inputs by default on small screens */
+      @media (max-width:520px){
+        .questions-container{padding-bottom:160px}
+      }
+    </style>
 </head>
 <body>
     <div class="page-shell">
@@ -287,5 +297,6 @@
     </div>
 
     <script src="app.js"></script>
+    <script src="fixes.js"></script>
 </body>
 </html>
