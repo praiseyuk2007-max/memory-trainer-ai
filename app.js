@@ -1,186 +1,210 @@
 // ============================================
-// MEMORY TRAINER AI - Main Application Logic (updated UI interactions)
+// MEMORY TRAINER AI - Online integration: Google CSE + Gemini + grader
+// Added: performOnlineGeneration now performs live Google CSE & Gemini calls when keys exist
+// Added: evaluateAnswer uses Gemini for online grading when available, otherwise offline heuristic
+// Note: API keys are read from localStorage via the key manager. Do NOT hard-code keys here.
 // ============================================
 
-// STATE MANAGEMENT
-const state = {
-    currentScreen: 'home',
-    currentTopic: '',
-    currentSession: null,
-    difficulty: 'NORMAL',
-    readingContent: '',
-    questions: [],
-    userAnswers: [],
-    userWriting: '',
-    feedback: '',
-    score: 0,
-    isReviewMode: false
-};
+// Keep previous helper functions and state loaded from app.js / other bundles
 
-// STORAGE KEYS
-const STORAGE_KEY = 'memoryTrainerSessions';
-const REVIEW_KEY = 'memoryTrainerReview';
+async function performOnlineGeneration(topic){
+  // Purpose: return { reading, questions, sources }
+  // 1) Try Google CSE (if key available) to gather sources/snippets
+  // 2) Try Gemini Generative API (if key available) to generate reading & questions
+  // 3) Fallback to synthesizeOfflineReading / knowledgeBase
 
-// Knowledge base (same as before)
-const knowledgeBase = {
-    'Photosynthesis': {
-        reading: `Photosynthesis is the process by which plants convert light energy into chemical energy stored in glucose. It occurs primarily in the leaves, specifically in structures called chloroplasts. The process has two main stages: the light-dependent reactions, which occur in the thylakoid membrane and require sunlight, and the light-independent reactions (Calvin cycle), which occur in the stroma and don't require direct light. During the light-dependent reactions, water molecules are split, releasing oxygen as a byproduct, while the light-independent reactions use the energy products from the first stage to convert carbon dioxide into glucose. This glucose serves as food for the plant and is the basis of nearly all life on Earth, as it provides energy for most organisms.`,
-        questions: [
-            "What are the two main stages of photosynthesis and where do they occur?",
-            "Why is photosynthesis essential for life on Earth?",
-            "Explain the role of chloroplasts in photosynthesis.",
-            "What happens to water molecules during the light-dependent reactions?"
-        ],
-        sources: ['Wikipedia','Khan Academy','Britannica']
-    },
-    'DNA Structure': {
-        reading: `DNA, or deoxyribonucleic acid, is the molecule that carries genetic instructions for life. It has a double helix structure consisting of two complementary strands twisted together. Each strand is made up of nucleotides, which contain a sugar (deoxyribose), a phosphate group, and a nitrogenous base. There are four types of bases: adenine (A), thymine (T), guanine (G), and cytosine (C). Adenine always pairs with thymine, and guanine always pairs with cytosine, following Chargaff's rules. The two strands are held together by hydrogen bonds between these base pairs. DNA is found primarily in the cell nucleus (nuclear DNA) and also in mitochondria and chloroplasts. The sequence of these bases encodes genetic information and determines the characteristics and functions of living organisms.`,
-        questions: [
-            "Describe the basic structure of a DNA molecule.",
-            "What are the base pairing rules in DNA?",
-            "Name the three components of a nucleotide.",
-            "Where is DNA primarily located in a cell?"
-        ],
-        sources: ['Wikipedia','Britannica','Scholar']
-    },
-    'Neural Networks': {
-        reading: `Neural networks are computational models inspired by how biological neurons work in the brain. They consist of interconnected nodes (neurons) organized in layers: an input layer, hidden layers, and an output layer. Each connection between neurons has a weight that determines how strongly one neuron influences another. During training, neural networks learn by adjusting these weights based on errors in their predictions. This process is called backpropagation. Activation functions introduce non-linearity, allowing networks to learn complex patterns. Neural networks excel at tasks like image recognition, natural language processing, and pattern detection. Deep learning refers to neural networks with many hidden layers, enabling them to learn increasingly abstract representations of data.`,
-        questions: [
-            "What are the main components of a neural network?",
-            "Explain what backpropagation does in a neural network.",
-            "What is the purpose of activation functions?",
-            "How do weights in a neural network affect its behavior?"
-        ],
-        sources: ['Wikipedia','Verywell','Khan Academy']
-    },
-    'Mitochondria': {
-        reading: `Mitochondria are often called the "powerhouses" of the cell because they produce energy in the form of ATP (adenosine triphosphate). These organelles have a unique double membrane structure: an outer membrane and an inner membrane with many folds called cristae. Mitochondria contain their own DNA and ribosomes, suggesting they originated from ancient bacteria through endosymbiosis. The process of producing ATP involves two main stages: the Krebs cycle (also called the citric acid cycle) and the electron transport chain. During these processes, organic molecules like glucose are broken down, and their energy is used to add phosphate groups to ADP, forming ATP. A single cell can contain hundreds or thousands of mitochondria, with the number varying based on the cell's energy demands.`,
-        questions: [
-            "Why are mitochondria called the powerhouses of cells?",
-            "Describe the structure of a mitochondrion.",
-            "What evidence suggests that mitochondria were once independent organisms?",
-            "Explain the basic process of ATP production in mitochondria."
-        ],
-        sources: ['Wikipedia','Britannica']
-    },
-    'Climate Change': {
-        reading: `Climate change refers to long-term shifts in global temperatures and weather patterns, primarily driven by human activities. The main cause is the emission of greenhouse gases, particularly carbon dioxide (CO₂), methane (CH₄), and nitrous oxide (N₂O). These gases trap heat in the atmosphere, preventing it from radiating back into space—a process called the greenhouse effect. Since the Industrial Revolution, atmospheric CO₂ levels have increased by over 40%, primarily from burning fossil fuels. Climate change causes rising sea levels, more frequent extreme weather events, ecosystem disruption, and threats to food security. Mitigation strategies include reducing emissions, increasing renewable energy use, protecting forests, and improving energy efficiency. Adaptation strategies help communities adjust to unavoidable climate changes.`,
-        questions: [
-            "What are the primary causes of climate change?",
-            "Name three greenhouse gases and their sources.",
-            "Explain the greenhouse effect and its role in climate change.",
-            "What are the differences between mitigation and adaptation strategies?"
-        ],
-        sources: ['Wikipedia','Britannica','APA']
-    }
-};
+  const keys = loadKeys();
+  const googleKey = keys.find(k => k.type === 'google');
+  const genKey = keys.find(k => k.type === 'gen');
+  const model = getSavedModel();
 
-// =========================
-// Utilities
-// =========================
-function getRandomInt(min,max){return Math.floor(Math.random()*(max-min+1))+min}
-function getRandomItem(arr){return arr[Math.floor(Math.random()*arr.length)]}
+  let sources = [];
+  // 1) Google CSE
+  if(googleKey && googleKey.value && googleKey.extra){
+    try{
+      const apiKey = encodeURIComponent(googleKey.value.trim());
+      const cseId = encodeURIComponent(googleKey.extra.trim());
+      const q = encodeURIComponent(topic);
+      const url = `https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cseId}&q=${q}&num=5`;
+      const res = await fetch(url);
+      if(res.ok){
+        const json = await res.json();
+        if(json.items && json.items.length){
+          json.items.forEach(it => {
+            sources.push({ source: it.displayLink || it.title || 'Search', title: it.title || '', excerpt: (it.snippet||''), url: it.link || it.formattedUrl });
+          });
+        }
+      } else {
+        console.warn('Google CSE failed', res.status);
+      }
+    }catch(e){ console.warn('Google CSE error', e); }
+  }
 
-function calculateScore(userWriting){
-    let score=5;
-    if(userWriting.length>150) score+=2;
-    if(userWriting.length>220) score+=1;
-    const words = userWriting.toLowerCase().split(/\s+/).filter(Boolean);
-    const unique = new Set(words);
-    if(words.length && unique.size/words.length>0.6) score+=1;
-    if(userWriting.length<50) score=Math.max(0,score-3);
-    score+=getRandomInt(-1,1);
-    return Math.max(0,Math.min(10,score));
+  // 2) Gemini (Generative) - build a prompt and call model if key exists
+  if(genKey && genKey.value){
+    try{
+      // Build the prompt: ask for a 5-8 sentence reading + 4 recall questions + list of sources used
+      const system = `You are an educational assistant. Produce a concise 5-8 sentence reading passage about the topic, followed by 4 active-recall questions (short open-ended). Include a JSON block with keys: reading (string), questions (array of strings), sources (array of objects with name and url if available). Answer in JSON only.`;
+      const user = `Topic: ${topic}\nPlease respond with a JSON object: {"reading": "...", "questions": ["..."], "sources": [{"name":"...","url":"..."}]}`;
+
+      // Use Google Generative API REST endpoint form. Many deployments accept API key as query param. If different auth is required, the request may fail and we fallback.
+      const apiKey = genKey.value.trim();
+      const modelId = encodeURIComponent(model || 'gemini-3.1-flash-lite');
+      const url = `https://generativelanguage.googleapis.com/v1beta2/models/${modelId}:generateText?key=${encodeURIComponent(apiKey)}`;
+
+      const body = {
+        "prompt": {
+          "text": system + "\n\n" + user
+        },
+        "temperature": 0.2,
+        "maxOutputTokens": 600
+      };
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+
+      if(res.ok){
+        const data = await res.json();
+        // attempt to extract generated text
+        const text = (data?.candidates && data.candidates[0] && data.candidates[0].output) || data?.output?.[0]?.content?.[0]?.text || data?.candidates?.[0]?.content?.text || null;
+        let parsed = null;
+        if(text){
+          // Try to find JSON substring
+          const jStart = text.indexOf('{');
+          const jEnd = text.lastIndexOf('}');
+          if(jStart >=0 && jEnd>jStart){
+            const substr = text.slice(jStart, jEnd+1);
+            try{ parsed = JSON.parse(substr); } catch(e){ console.warn('Could not parse JSON from model output', e); }
+          }
+        }
+        if(parsed){
+          const reading = parsed.reading || (parsed.text || '');
+          const questions = parsed.questions || parsed.qs || [];
+          const modelSources = (parsed.sources || []).map(s => ({ title: s.name || s.title || s.source, excerpt: s.excerpt || '', url: s.url || '' }));
+          // merge sources (google + modelSources)
+          const mergedSources = [...modelSources];
+          sources.forEach(s => { if(!mergedSources.find(ms => ms.url === s.url)) mergedSources.push(s); });
+          // cache relevant excerpts
+          mergedSources.forEach(s => { if(s.excerpt){ addToCache(topic, s.excerpt); } });
+          return { reading, questions, sources: mergedSources };
+        } else {
+          // fallback to text as reading and use CSE sources
+          const readingText = data?.candidates?.[0]?.content?.map(c=>c.text||'').join('\n') || 'AI generated reading.';
+          return { reading: readingText, questions: generateQuestionsForTopic(topic), sources };
+        }
+      } else {
+        console.warn('Gemini API call failed', res.status);
+      }
+
+    } catch(e){ console.warn('Gemini call error', e); }
+  }
+
+  // 3) Fallback
+  // If we have Google CSE sources, try to construct a reading from snippet + knowledgeBase
+  if(sources && sources.length){
+    const snippet = sources[0].excerpt || sources[0].title || '';
+    const reading = synthesizeOfflineReading(topic) || (knowledgeBase[topic] && knowledgeBase[topic].reading) || snippet || `Overview of ${topic}.`;
+    const questions = generateQuestionsForTopic(topic);
+    // cache first snippet
+    if(sources[0].excerpt) addToCache(topic, sources[0].excerpt);
+    return { reading, questions, sources };
+  }
+
+  // 4) Last fallback: knowledgeBase or synthesized offline
+  const kb = knowledgeBase[topic];
+  const reading = synthesizeOfflineReading(topic) || (kb && kb.reading) || `No summary available for ${topic}.`;
+  const questions = generateQuestionsForTopic(topic);
+  const kbSources = (kb && kb.sources) ? kb.sources.map(n=>({title:n,url:SOURCE_URLS[n]||'#'})) : [];
+  return { reading, questions, sources: kbSources };
 }
 
-function getNextReviewTime(score){ if(score>=8) return {days:7,label:'7+ days'}; if(score>=5) return {days:2,label:'2-3 days'}; return {days:0,label:'Next session'}}
+// Evaluate answer: prefer online model-based grading if Gemini key present
+async function evaluateAnswer(topic, userAnswer){
+  const keys = loadKeys();
+  const genKey = keys.find(k => k.type === 'gen');
+  const model = getSavedModel();
 
-// storage helpers
-function saveSession(topic,score,difficulty){
-    const session={id:Date.now(),topic,score,difficulty,timestamp:new Date().toISOString(),nextReview:new Date(Date.now()+getNextReviewTime(score).days*24*60*60*1000).toISOString()}
-    const sessions=JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');sessions.push(session);localStorage.setItem(STORAGE_KEY,JSON.stringify(sessions));updateReviewList(topic,score);return session}
+  // Offline heuristic grader
+  function offlineGrade(topic, answer){
+    const kb = knowledgeBase[topic] || {};
+    const text = (kb.reading || '').toLowerCase();
+    const expected = new Set((text.match(/\b[a-z]{4,}\b/g)||[])); // naive keywords
+    const tokens = (answer||'').toLowerCase().match(/\b[a-z]{3,}\b/g)||[];
+    const matches = tokens.filter(t=>expected.has(t));
+    const score = Math.round(Math.min(10, (matches.length / Math.max(1, expected.size)) * 10));
+    const feedback = [];
+    if(score < 6) feedback.push('Some key concepts are missing — try including the main definition and one example.');
+    else feedback.push('Good: your answer contains several important keywords.');
+    return { score, feedback };
+  }
 
-function updateReviewList(topic,score){const reviews=JSON.parse(localStorage.getItem(REVIEW_KEY)||'{}');if(!reviews[topic])reviews[topic]={scores:[],averageScore:0,lastReview:null,nextReview:null};reviews[topic].scores.push(score);reviews[topic].averageScore=reviews[topic].scores.reduce((a,b)=>a+b,0)/reviews[topic].scores.length;reviews[topic].lastReview=new Date().toISOString();reviews[topic].nextReview=new Date(Date.now()+getNextReviewTime(score).days*24*60*60*1000).toISOString();localStorage.setItem(REVIEW_KEY,JSON.stringify(reviews))}
+  // If we have Gemini key, attempt online grading
+  if(genKey && genKey.value){
+    try{
+      const apiKey = genKey.value.trim();
+      const modelId = encodeURIComponent(model || 'gemini-3.1-flash-lite');
+      const url = `https://generativelanguage.googleapis.com/v1beta2/models/${modelId}:generateText?key=${encodeURIComponent(apiKey)}`;
+      const prompt = `You are an expert grader. Topic: ${topic}. User answer: "${userAnswer}".\nGive a score 0-10 and list 2 brief weak points and a concise explanation of what was missing. Return JSON: {"score": number, "weak_points": ["..."], "explanation":"..."}`;
+      const body = { prompt: { text: prompt }, temperature: 0.0, maxOutputTokens: 200 };
+      const res = await fetch(url, { method: 'POST', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) });
+      if(res.ok){
+        const data = await res.json();
+        const text = (data?.candidates?.[0]?.content?.map(c=>c.text).join('')) || data?.candidates?.[0]?.output || null;
+        if(text){
+          // extract JSON
+          const jStart = text.indexOf('{'); const jEnd = text.lastIndexOf('}');
+          if(jStart>=0 && jEnd>jStart){
+            const substr = text.slice(jStart, jEnd+1);
+            try{ const parsed = JSON.parse(substr); return { score: parsed.score||0, feedback: parsed.weak_points||[parsed.explanation||''] } catch(e){ console.warn('grading parse error', e); }
+          }
+        }
+      } else {
+        console.warn('Online grading failed', res.status);
+      }
+    } catch(e){ console.warn('grading error', e); }
+  }
 
-function getWeakTopics(){const reviews=JSON.parse(localStorage.getItem(REVIEW_KEY)||'{}');const now=new Date();return Object.entries(reviews).filter(([t,d])=>new Date(d.nextReview)<=now).slice(0,5)}
+  // fallback: offline heuristic
+  return offlineGrade(topic, userAnswer);
+}
 
-function updateReviewBanner(){const weak=getWeakTopics();const banner=document.getElementById('reviewBanner');if(!banner) return; if(weak.length) banner.classList.remove('hidden'); else banner.classList.add('hidden')}
+// Hook evaluation into showFeedback path
+async function showFeedback(){
+  // grade user's writing
+  const gradeResult = await evaluateAnswer(state.currentTopic, state.userWriting);
+  const score = gradeResult.score || calculateScore(state.userWriting);
+  state.score = score;
+  const reviewTime = getNextReviewTime(score);
+  const feedbackHTML = `
+    <div class="feedback-section">
+      <h3>✅ Your Explanation</h3>
+      <p>${state.userWriting}</p>
+    </div>
+    <div class="feedback-section">
+      <h3>📚 Grader Feedback</h3>
+      <p>Score: <strong>${score}</strong>/10</p>
+      <ul>${(gradeResult.feedback||[]).map(f=>`<li>${escapeHtml(f)}</li>`).join('')}</ul>
+    </div>
+    <div class="feedback-section">
+      <h3>📚 Key Concept (Feynman Style)</h3>
+      <p>${generateFeynman(state.currentTopic)}</p>
+    </div>
+    <div class="feedback-section">
+      <h3>🎯 Suggestions</h3>
+      <p>${generateSuggestions()}</p>
+    </div>
+  `;
+  document.getElementById('feedbackContent').innerHTML = feedbackHTML;
+  document.getElementById('scoreValue').textContent = score;
+  document.getElementById('nextReviewText').textContent = `Next review scheduled: ${reviewTime.label}`;
+  saveSession(state.currentTopic, score, state.difficulty);
+  updateReviewBanner();
+  showScreen('feedbackScreen');
+}
 
-// =========================
-// UI helpers
-// =========================
-function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));const el=document.getElementById(id);if(el) el.classList.add('active');state.currentScreen=id}
-
-function renderSources(sources){const container=document.getElementById('sourcesList');if(!container) return;container.innerHTML='';sources.forEach(s=>{const chip=document.createElement('div');chip.className='source-chip';chip.innerHTML=`<span class="icon">${s.charAt(0)}</span><span>${s}</span>`;container.appendChild(chip)})}
-
-// =========================
-// Core flow
-// =========================
-function startSession(topic){state.currentTopic=topic;state.isReviewMode=false;state.currentSession={topic,startTime:Date.now()};showReading(topic)}
-function startReviewSession(topic){state.currentTopic=topic;state.isReviewMode=true;showReading(topic)}
-
-function showReading(topic){const kb=knowledgeBase[topic]||Object.values(knowledgeBase)[0];state.readingContent=kb.reading;state.questions=kb.questions.slice(0, getRandomInt(3,5));document.getElementById('readingContent').innerHTML=`<p>${state.readingContent}</p>`;renderSources(kb.sources||['Wikipedia','Khan Academy','Britannica']);updateDifficulty(state.difficulty);showScreen('readingScreen')}
-
-function updateDifficulty(level){state.difficulty=level;document.getElementById('difficultyBadge')?.textContent=level;document.querySelectorAll('.difficulty-card').forEach(c=>{c.classList.toggle('selected', c.dataset.difficulty && c.dataset.difficulty.toUpperCase()===level.toUpperCase())})}
-
-function showRecall(){const container=document.getElementById('questionsContainer');container.innerHTML='';state.userAnswers=[];state.questions.forEach((q,i)=>{const item=document.createElement('div');item.className='question-item';item.innerHTML=`<div class="question-label">Question ${i+1} of ${state.questions.length}</div><div class="question-text">${q}</div><textarea class="question-input" placeholder="Your answer..." data-index="${i}"></textarea>`;container.appendChild(item)});showScreen('recallScreen');document.querySelectorAll('.question-input').forEach(i=>i.addEventListener('input',validateRecallAnswers));}
-
-function validateRecallAnswers(){const inputs=document.querySelectorAll('.question-input');const all=Array.from(inputs).every(i=>i.value.trim().length>0);document.getElementById('submitRecall').disabled=!all}
-
-function collectRecallAnswers(){const inputs=document.querySelectorAll('.question-input');state.userAnswers=Array.from(inputs).map(i=>i.value);showWriting()}
-
-function showWriting(){document.getElementById('writingInput').value='';document.getElementById('charCount').textContent='0';document.getElementById('submitWriting').disabled=true;document.getElementById('writingInput').addEventListener('input',e=>{const l=e.target.value.length;document.getElementById('charCount').textContent=l;document.getElementById('submitWriting').disabled=l<50});showScreen('writingScreen')}
-
-function collectWriting(){state.userWriting=document.getElementById('writingInput').value;showFeedback()}
-
-function showFeedback(){const score=calculateScore(state.userWriting);state.score=score;const reviewTime=getNextReviewTime(score);const feedbackHTML=`<div class="feedback-section"><h3>✅ Your Explanation</h3><p>${state.userWriting}</p></div><div class="feedback-section"><h3>📚 Key Concept (Feynman Style)</h3><p>${generateFeynman(state.currentTopic)}</p></div><div class="feedback-section"><h3>💡 Weak Points</h3>${generateWeakPoints(score)}</div><div class="feedback-section"><h3>🎯 Suggestions</h3><p>${generateSuggestions(score)}</p></div>`;document.getElementById('feedbackContent').innerHTML=feedbackHTML;document.getElementById('scoreValue').textContent=score;document.getElementById('nextReviewText').textContent=`Next review scheduled: ${reviewTime.label}`;saveSession(state.currentTopic,score,state.difficulty);updateReviewBanner();showScreen('feedbackScreen')}
-
-function generateFeynman(topic){const map={'Photosynthesis':'Plants use sunlight to make food from air and water — think of leaves as tiny factories.','DNA Structure':'A twisted ladder of chemical letters that stores biological instructions.','Neural Networks':'A set of connected units that learn by adjusting links based on errors.','Mitochondria':'Cell structures that convert nutrients into usable energy (ATP).','Climate Change':'Earth warming caused by gases that trap heat from sunlight.'};return map[topic]||'A clear, simple summary of the main idea.'}
-
-function generateWeakPoints(score){if(score>=8) return '<p class="weak-point">🌟 Excellent — clear and accurate.</p>'; if(score>=5) return '<p class="weak-point">⚠️ Some details missing. Focus on definitions and one example.</p>'; return '<p class="weak-point">⚠️ Core points missing. Revisit the reading and try again next session.</p>'}
-function generateSuggestions(){const s=['Use a short example to anchor the idea.','Explain it out loud like you would to a friend.','Break it into two smaller parts and practice each.'];return getRandomItem(s)}
-
-function showReviewList(){const weakTopics=Object.entries(JSON.parse(localStorage.getItem(REVIEW_KEY)||'{}'));const reviewList=document.getElementById('reviewList');const noReview=document.getElementById('noReview');if(weakTopics.length===0){reviewList.innerHTML='';noReview.style.display='block'}else{noReview.style.display='none';reviewList.innerHTML=weakTopics.map(([topic,data])=>{const avg=(data.averageScore|| (data.scores? data.scores.reduce((a,b)=>a+b,0)/data.scores.length:0)).toFixed(1);let badge='🔶';return `<div class="review-item" onclick="startReviewSession('${topic.replace(/'/g,"\\'")}')"><div><div style="font-weight:700">${topic}</div><div style="color:var(--subtext);font-size:13px">Avg score: ${avg}/10</div></div><div>${badge}</div></div>`}).join('')}
-showScreen('reviewScreen')}
-
-// =========================
-// Event wiring
-// =========================
-
-document.addEventListener('DOMContentLoaded',()=>{
-    updateReviewBanner();
-    // start
-    document.getElementById('startBtn').addEventListener('click',()=>{const t=document.getElementById('topicInput').value.trim();if(!t){alert('Please enter a topic');return}startSession(t)})
-    document.getElementById('topicInput').addEventListener('keypress',e=>{if(e.key==='Enter') document.getElementById('startBtn').click()})
-    document.querySelectorAll('.quick-btn').forEach(btn=>btn.addEventListener('click',()=>startSession(btn.dataset.topic)));
-    document.getElementById('randomBtn').addEventListener('click',()=>{const topics=Object.keys(knowledgeBase);const pick=getRandomItem(topics);document.getElementById('topicInput').value=pick})
-    document.getElementById('reviewBtn').addEventListener('click',showReviewList)
-
-    // difficulty cards
-    document.querySelectorAll('.difficulty-card').forEach(card=>{card.addEventListener('click',()=>{document.querySelectorAll('.difficulty-card').forEach(c=>c.classList.remove('selected'));card.classList.add('selected');updateDifficulty(card.dataset.difficulty)})})
-
-    // reading
-    document.getElementById('backFromReading').addEventListener('click',()=>showScreen('homeScreen'))
-    document.getElementById('continueFromReading').addEventListener('click',showRecall)
-
-    // recall
-    document.getElementById('backFromRecall').addEventListener('click',showReading.bind(null,state.currentTopic))
-    document.getElementById('submitRecall').addEventListener('click',collectRecallAnswers)
-
-    // hint
-    document.getElementById('hintBtn')?.addEventListener('click',()=>{const hint='Recall the main definition and one concrete example — that should guide you.';alert(hint)})
-
-    // writing
-    document.getElementById('backFromWriting').addEventListener('click',showRecall)
-    document.getElementById('submitWriting').addEventListener('click',collectWriting)
-
-    // feedback
-    document.getElementById('nextTopic').addEventListener('click',()=>{document.getElementById('topicInput').value='';showScreen('homeScreen');updateReviewBanner()})
-    document.getElementById('reviewAgain').addEventListener('click',()=>showScreen('homeScreen'))
-
-    // review screen
-    document.getElementById('backFromReview').addEventListener('click',()=>showScreen('homeScreen'))
-});
-
-// initial banner update
-updateReviewBanner();
+// Export some functions for debugging in console
+window.performOnlineGeneration = performOnlineGeneration;
+window.evaluateAnswer = evaluateAnswer;
